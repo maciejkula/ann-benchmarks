@@ -1,15 +1,18 @@
 import sklearn.neighbors
 import annoy
-import pyflann
-import panns
-import nearpy, nearpy.hashes, nearpy.distances
-import pykgraph
+# import pyflann
+# import panns
+# import nearpy, nearpy.hashes, nearpy.distances
+# import pykgraph
 import gzip, numpy, time, os, multiprocessing
 try:
     from urllib import urlretrieve
 except ImportError:
     from urllib.request import urlretrieve # Python 3
 import sklearn.cross_validation, sklearn.preprocessing, random
+
+
+from rpt import RP
 
 class BaseANN(object):
     pass
@@ -167,11 +170,11 @@ def get_dataset(which='glove'):
     for i, line in enumerate(f):
         v = [float(x) for x in line.strip().split()]
         X.append(v)
-        #if len(X) == 100: # just for debugging purposes right now
-        #    break
+        if len(X) == 100000: # just for debugging purposes right now
+            break
 
     X = numpy.vstack(X)
-    X_train, X_test = sklearn.cross_validation.train_test_split(X, test_size=1000, random_state=42)
+    X_train, X_test = sklearn.cross_validation.train_test_split(X, test_size=100, random_state=42)
     print X_train.shape, X_test.shape
     return X_train, X_test
 
@@ -200,15 +203,16 @@ def run_algo(library, algo):
 bf = BruteForce()
 
 algos = {
-    'lshf': [LSHF(5, 10), LSHF(5, 20), LSHF(10, 20), LSHF(10, 50), LSHF(20, 100)],
-    'flann': [FLANN(0.2), FLANN(0.5), FLANN(0.7), FLANN(0.8), FLANN(0.9), FLANN(0.95), FLANN(0.97), FLANN(0.98), FLANN(0.99), FLANN(0.995)],
-    'panns': [PANNS(5, 20), PANNS(10, 10), PANNS(10, 50), PANNS(10, 100), PANNS(20, 100), PANNS(40, 100)],
-    'annoy': [Annoy(3, 10), Annoy(5, 25), Annoy(10, 10), Annoy(10, 40), Annoy(10, 100), Annoy(10, 200), Annoy(10, 400), Annoy(10, 1000), Annoy(20, 20), Annoy(20, 100), Annoy(20, 200), Annoy(20, 400), Annoy(40, 40), Annoy(40, 100), Annoy(40, 400), Annoy(100, 100), Annoy(100, 200), Annoy(100, 400), Annoy(100, 1000)],
-    'nearpy': [NearPy(30, 10), NearPy(30, 20), NearPy(30, 30), NearPy(20, 10), NearPy(20, 20), NearPy(20, 30), NearPy(15, 10), NearPy(15, 20), NearPy(15, 30), NearPy(10, 10), NearPy(10, 20), NearPy(10, 30), NearPy(8, 10), NearPy(8, 20), NearPy(8, 30)],
-    'kgraph': [KGraph(20), KGraph(50), KGraph(100), KGraph(200), KGraph(500), KGraph(1000)],
-    'bruteforce': [bf],
-    'ball': [BallTree(10), BallTree(20), BallTree(40), BallTree(100), BallTree(200), BallTree(400), BallTree(1000)],
-    'kd': [KDTree(10), KDTree(20), KDTree(40), KDTree(100), KDTree(200), KDTree(400), KDTree(1000)]
+    'rp': [RP(100, 0.1), RP(1000, 0.1), RP(1000, 0.2), RP(1000, 0.3), RP(1000, 0.0), RP(1000, 0.01), RP(1000, 0.001)],
+    # 'lshf': [LSHF(5, 10), LSHF(5, 20), LSHF(10, 20), LSHF(10, 50), LSHF(20, 100)],
+    # 'flann': [FLANN(0.2), FLANN(0.5), FLANN(0.7), FLANN(0.8), FLANN(0.9), FLANN(0.95), FLANN(0.97), FLANN(0.98), FLANN(0.99), FLANN(0.995)],
+    # 'panns': [PANNS(5, 20), PANNS(10, 10), PANNS(10, 50), PANNS(10, 100), PANNS(20, 100), PANNS(40, 100)],
+     # 'annoy': [Annoy(3, 10), Annoy(5, 25), Annoy(10, 10), Annoy(10, 40), Annoy(10, 100), Annoy(10, 200), Annoy(10, 400), Annoy(10, 1000), Annoy(20, 20), Annoy(20, 100), Annoy(20, 200), Annoy(20, 400), Annoy(40, 40), Annoy(40, 100), Annoy(40, 400), Annoy(100, 100), Annoy(100, 200), Annoy(100, 400), Annoy(100, 1000)],
+    # 'nearpy': [NearPy(30, 10), NearPy(30, 20), NearPy(30, 30), NearPy(20, 10), NearPy(20, 20), NearPy(20, 30), NearPy(15, 10), NearPy(15, 20), NearPy(15, 30), NearPy(10, 10), NearPy(10, 20), NearPy(10, 30), NearPy(8, 10), NearPy(8, 20), NearPy(8, 30)],
+    # 'kgraph': [KGraph(20), KGraph(50), KGraph(100), KGraph(200), KGraph(500), KGraph(1000)],
+     # 'bruteforce': [bf],
+    # 'ball': [BallTree(10), BallTree(20), BallTree(40), BallTree(100), BallTree(200), BallTree(400), BallTree(1000)],
+    # 'kd': [KDTree(10), KDTree(20), KDTree(40), KDTree(100), KDTree(200), KDTree(400), KDTree(1000)]
 }
 
 X_train, X_test = get_dataset(which='glove')
@@ -226,6 +230,7 @@ algos_already_ran = set()
 if os.path.exists('data.tsv'):
     for line in open('data.tsv'):
         algos_already_ran.add(line.strip().split('\t')[1])
+algos_already_ran = set()
 
 algos_flat = []
 
@@ -236,9 +241,11 @@ for library in algos.keys():
 
 random.shuffle(algos_flat)
 
+
 for library, algo in algos_flat:
     print algo.name, '...'
     # Spawn a subprocess to force the memory to be reclaimed at the end
-    p = multiprocessing.Process(target=run_algo, args=(library, algo))
-    p.start()
-    p.join()
+    run_algo(library, algo)
+    # p = multiprocessing.Process(target=run_algo, args=(library, algo))
+    # p.start()
+    # p.join()
